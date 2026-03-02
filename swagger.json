@@ -1,0 +1,1247 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "OPEN API CRM",
+    "description": "## Tổng quan\r\n\r\nOPEN API CRM cung cấp các phương thức để quản lý dữ liệu của một số phân hệ trên CRM. Bạn có thể tạo, lấy, cập nhật và xóa dữ liệu. Tài liệu này giúp bạn hiểu cách tương tác với API để tích hợp chúng vào ứng dụng của bạn.\r\n\n## Xác Thực\r\n\r\nQuy trình các bước thực hiện sinh token để sử dụng Open API:\r\n\r\n### Bước 1: Sinh token bằng api [Account](#tag/Account) (sử dụng AppID và mã bảo mật do CRM cung cấp làm tham số đầu vào) và sao chép kết quả đoạn mã api trả ra\r\n```bat\r\ncurl --location --request POST 'https://crmconnect.misa.vn/api/v2/Account' \\\r\n--header 'Content-Type: application/json' \\\r\n--data '{\r\n    \"client_id\": \"PublicAPI\",\r\n    \"client_secret\": \"zrt8J3MqqWEmdrL+oXldGuQbaIuETNVE5k6uQuPLIEc=\"\r\n}'\r\n```\r\nResponse\r\n```json\r\n{\r\n    \"success\": true,\r\n    \"code\": 0,\r\n    \"data\": \"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkZGF0YSI6Ik9NdVc2dytKL0o4dWN0ZUVwQ2x4dlBtbVNuNElnQ2ZPSHlmQVJpOStISU9RWXYzSjBqWHQ1NGFmaVAvYXkzNzJ2UnoyVXJmWDA2dWtXUzZoOWRUVGc0Tzk2NVRYTDEwY1pTWWt1RTJuVUZhYTMrbHo3enpEYWx4RDFHcDE5UzVqdi9nRDduanNHNW5zVi9vUXRENVFDejJXT3RKZDQ3UXA4UmRVem05dWZkaEtsVEtCTVJHUWtwQ1pJbHZrU1JoOVFMdTE3RVFWU3JBbUVITGVoTElxeU5qc1M3MWFkYUZWNVVRQk9jd294OEU9IiwiZXhwIjoxNzEwODIwNjE0LCJpc3MiOiJNSVNBIiwiYXVkIjoiQU1JU0NSTTIifQ.bQ7YCePHY4sX1t0AzDGfLhp6N0fKaT0oxNM6Cy6sf88\"\r\n}\r\n```\r\n\r\n### Bước 2: Thêm header Authorization: Bearer {token} vào các request xử lý dữ liệu và thực hiện gọi các api mà CRM cũng cấp\r\n```\r\ncurl --location --request GET 'https://crmconnect.misa.vn/api/v2/Customers' \\\r\n--header 'Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJwYXlsb2FkZGF0YSI6Ik9NdVc2dytKL0o4dWN0ZUVwQ2x4dlBtbVNuNElnQ2ZPSHlmQVJpOStISU9RWXYzSjBqWHQ1NGFmaVAvYXkzNzJ2UnoyVXJmWDA2dWtXUzZoOWRUVGc0Tzk2NVRYTDEwY1pTWWt1RTJuVUZhYTMrbHo3enpEYWx4RDFHcDE5UzVqdi9nRDduanNHNW5zVi9vUXRENVFDejJXT3RKZDQ3UXA4UmRVem05dWZkaEtsVEtCTVJHUWtwQ1pJbHZrU1JoOVFMdTE3RVFWU3JBbUVITGVoTElxeU5qc1M3MWFkYUZWNVVRQk9jd294OEU9IiwiZXhwIjoxNzEwODIwNjE0LCJpc3MiOiJNSVNBIiwiYXVkIjoiQU1JU0NSTTIifQ.bQ7YCePHY4sX1t0AzDGfLhp6N0fKaT0oxNM6Cy6sf88'\r\n```\r\n\n## Lỗi\r\n|HTTP Status code   |Mô tả   |\r\n| ------------ | ------------ |\r\n|200   |Server xử lý thành công.|\r\n|400   |Dữ liệu không hợp lệ.|\r\n|401   |Token hết hạn hoặc không hợp lệ. |\r\n|404   |Server không tìm thấy bất kì tài nguyên nào liên quan tới request URL này.|\r\n|500   |Có lỗi xảy ra phía server.|\r\n\r\n### Property code\r\nHệ thống OPEN API CRM khi trả về HTTP status code 200 sử dụng property \"code\" trong response để cho biết sự thành công hay thất bại của request\r\n\r\n|code   |Mô tả   |\r\n| ------------ | ------------ |\r\n|200   |Xử lý thành công ít nhất 1 bản ghi. Chú ý: Với phương thức GET đồng nghĩa với việc dữ liệu trả về đã nằm trong response|\r\n|400   |Dữ liệu không hợp lệ, sẽ kèm theo thông tin chi tiết lỗi.|\r\n|401   |Không có quyền thực hiện chức năng. |\r\n|500   |Có lỗi xảy ra phía server.|\r\n\r\n### Property results\r\n|Property   |Mô tả   |\r\n| ------------ | ------------ |\r\n|success  |Xử lý thành công hay thất bại.|\r\n|data  |ID bản ghi nếu thành công.|\r\n|validate_infos  |Chi tiết lỗi.|\r\n\r\n\r\nVí dụ:\r\n- Respone khi xử lý thành công\r\n```json\r\n{\r\n    \"success\": true,\r\n    \"code\": 200,\r\n    \"results\": [\r\n        {\r\n            \"success\": true,\r\n            \"data\": 1\r\n        },\r\n        {\r\n            \"success\": true,\r\n            \"data\": 2\r\n        }\r\n    ]\r\n}\r\n```\r\n- Respone khi xử lý thất bại\r\n```json\r\n{\r\n    \"success\": false,\r\n    \"code\": 400,\r\n    \"results\": [\r\n        {\r\n            \"success\": false,\r\n            \"validate_infos\": [\r\n                {\r\n                    \"error_message\": \"Giá trị của Số đơn hàng đã bị trùng.\",\r\n                    \"field_name\": \"sale_order_no\"\r\n                }\r\n            ]\r\n        },\r\n        {\r\n            \"success\": false,\r\n            \"validate_infos\": [\r\n                {\r\n                    \"error_message\": \"Không tồn tại\",\r\n                    \"field_name\": \"account_name\"\r\n                }\r\n            ]\r\n        }\r\n    ]\r\n}\r\n```\r\n",
+    "version": "v2"
+  },
+  "servers": [
+    {
+      "url": "https://crmconnect.misa.vn"
+    }
+  ],
+  "paths": {
+    "/api/v2/Account": {
+      "post": {
+        "tags": ["Account"],
+        "summary": "Hàm thực hiện Sinh token để truy cập vào các api khác.",
+        "description": "Sau khi sinh token xong các API sau yêu cầu header truyền thêm Clientid  \r\nVD: Clientid: misajsc",
+        "requestBody": {
+          "description": "Tham số gọi request sinh token: client_id(AppID), client_secret(Mã bảo mật)",
+          "content": {
+            "application/json-patch+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLogin"
+              }
+            },
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLogin"
+              }
+            },
+            "text/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLogin"
+              }
+            },
+            "application/*+json": {
+              "schema": {
+                "$ref": "#/components/schemas/RequestLogin"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Success"
+          }
+        }
+      }
+    },
+    "/api/v2/Contacts": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Paging lấy về danh sách có phân trang",
+        "description": "page bắt đầu từ 0, pageSize max là 100, mặc định là 10, orderBy mặc định là theo modified_date desc",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Trang muốn xem",
+            "schema": {
+              "type": "integer",
+              "description": "Trang muốn xem",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Số bản ghi trên 1 trang",
+            "schema": {
+              "type": "integer",
+              "description": "Số bản ghi trên 1 trang",
+              "format": "int32",
+              "default": 10
+            }
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "description": "Sắp xếp theo",
+            "schema": {
+              "type": "string",
+              "description": "Sắp xếp theo",
+              "default": "modified_date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "isDescending",
+            "in": "query",
+            "description": "Giảm dần",
+            "schema": {
+              "type": "boolean",
+              "description": "Giảm dần",
+              "default": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Contacts/id": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Lấy dữ liệu theo id",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "danh sách id",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "description": "danh sách id",
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Contacts/code": {
+      "get": {
+        "tags": ["Contacts"],
+        "summary": "Lấy dữ liệu theo mã",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Customers": {
+      "get": {
+        "tags": ["Customers"],
+        "summary": "Paging lấy về danh sách có phân trang",
+        "description": "page bắt đầu từ 0, pageSize max là 100, mặc định là 10, orderBy mặc định là theo modified_date desc",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Trang muốn xem",
+            "schema": {
+              "type": "integer",
+              "description": "Trang muốn xem",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Số bản ghi trên 1 trang",
+            "schema": {
+              "type": "integer",
+              "description": "Số bản ghi trên 1 trang",
+              "format": "int32",
+              "default": 10
+            }
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "description": "Sắp xếp theo",
+            "schema": {
+              "type": "string",
+              "description": "Sắp xếp theo",
+              "default": "modified_date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "isDescending",
+            "in": "query",
+            "description": "Giảm dần",
+            "schema": {
+              "type": "boolean",
+              "description": "Giảm dần",
+              "default": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Customers/id": {
+      "get": {
+        "tags": ["Customers"],
+        "summary": "Lấy dữ liệu theo id",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "danh sách id",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "description": "danh sách id",
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Customers/code": {
+      "get": {
+        "tags": ["Customers"],
+        "summary": "Lấy dữ liệu theo mã",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Products": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "Paging lấy về danh sách có phân trang",
+        "description": "page bắt đầu từ 0, pageSize max là 100, mặc định là 10, orderBy mặc định là theo modified_date desc",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Trang muốn xem",
+            "schema": {
+              "type": "integer",
+              "description": "Trang muốn xem",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Số bản ghi trên 1 trang",
+            "schema": {
+              "type": "integer",
+              "description": "Số bản ghi trên 1 trang",
+              "format": "int32",
+              "default": 10
+            }
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "description": "Sắp xếp theo",
+            "schema": {
+              "type": "string",
+              "description": "Sắp xếp theo",
+              "default": "modified_date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "isDescending",
+            "in": "query",
+            "description": "Giảm dần",
+            "schema": {
+              "type": "boolean",
+              "description": "Giảm dần",
+              "default": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Products/id": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "Lấy dữ liệu theo id",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "danh sách id",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "description": "danh sách id",
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Products/code": {
+      "get": {
+        "tags": ["Products"],
+        "summary": "Lấy dữ liệu theo mã",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/SaleOrders": {
+      "get": {
+        "tags": ["SaleOrders"],
+        "summary": "Paging lấy về danh sách có phân trang",
+        "description": "page bắt đầu từ 0, pageSize max là 100, mặc định là 10, orderBy mặc định là theo modified_date desc",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Trang muốn xem",
+            "schema": {
+              "type": "integer",
+              "description": "Trang muốn xem",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Số bản ghi trên 1 trang",
+            "schema": {
+              "type": "integer",
+              "description": "Số bản ghi trên 1 trang",
+              "format": "int32",
+              "default": 10
+            }
+          },
+          {
+            "name": "orderBy",
+            "in": "query",
+            "description": "Sắp xếp theo",
+            "schema": {
+              "type": "string",
+              "description": "Sắp xếp theo",
+              "default": "modified_date",
+              "nullable": true
+            }
+          },
+          {
+            "name": "isDescending",
+            "in": "query",
+            "description": "Giảm dần",
+            "schema": {
+              "type": "boolean",
+              "description": "Giảm dần",
+              "default": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/SaleOrders/id": {
+      "get": {
+        "tags": ["SaleOrders"],
+        "summary": "Lấy dữ liệu theo id",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "description": "danh sách id",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "integer",
+                "format": "int64"
+              },
+              "description": "danh sách id",
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/SaleOrders/code": {
+      "get": {
+        "tags": ["SaleOrders"],
+        "summary": "Lấy dữ liệu theo mã",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ApiResponseV2"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Stocks": {
+      "get": {
+        "tags": ["Stocks"],
+        "summary": "Lấy tất cả Kho",
+        "parameters": [
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockListApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Stocks/product_ledger": {
+      "get": {
+        "tags": ["Stocks"],
+        "summary": "Paging lấy về danh sách tồn có phân trang",
+        "description": "pageSize max là 50, mặc định là 10,OrderBy mặc định là theo modified date\r\nnếu không truyền stockID thì sẽ lấy trên tất cả các kho",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "description": "Trang muốn xem",
+            "schema": {
+              "type": "integer",
+              "description": "Trang muốn xem",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "pageSize",
+            "in": "query",
+            "description": "Số bản ghi trên 1 trang",
+            "schema": {
+              "type": "integer",
+              "description": "Số bản ghi trên 1 trang",
+              "format": "int32"
+            }
+          },
+          {
+            "name": "stockID",
+            "in": "query",
+            "description": "Số bản ghi trên 1 trang",
+            "schema": {
+              "type": "string",
+              "description": "Số bản ghi trên 1 trang",
+              "default": "",
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProductLedgerListPagedResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Stocks/asyncid": {
+      "get": {
+        "tags": ["Stocks"],
+        "summary": "Lấy data Kho theo asyncID",
+        "description": "Lấy data Kho theo async_id",
+        "parameters": [
+          {
+            "name": "async_ids",
+            "in": "query",
+            "description": "list async id Kho",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "description": "list async id Kho",
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockListApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v2/Stocks/code": {
+      "get": {
+        "tags": ["Stocks"],
+        "summary": "Lấy data theo mã Kho",
+        "description": "Lấy data theo mã Kho",
+        "parameters": [
+          {
+            "name": "stockCode",
+            "in": "query",
+            "description": "Mã Kho",
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Mã Kho",
+              "nullable": true
+            }
+          },
+          {
+            "name": "Clientid",
+            "in": "header",
+            "description": "Mã ứng dụng đăng ký trên crm",
+            "required": true
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Success",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StockListApiResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "RequestLogin": {
+        "required": ["client_id", "client_secret"],
+        "type": "object",
+        "properties": {
+          "client_id": {
+            "type": "string",
+            "description": "Tên ứng dụng kết nối đến crm - Do crm cấp"
+          },
+          "client_secret": {
+            "type": "string",
+            "description": "Mã bảo mật, do crm cấp. Lưu ý bảo mật thông tin này"
+          }
+        },
+        "additionalProperties": false,
+        "description": "Tham số từ client truyền lên để sinh token"
+      },
+      "ValidateInfoV2": {
+        "type": "object",
+        "properties": {
+          "error_message": {
+            "type": "string",
+            "nullable": true
+          },
+          "field_name": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidateResultV2": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "data": {
+            "description": "id bản ghi nếu thêm sửa thành công",
+            "nullable": true
+          },
+          "validate_infos": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidateInfoV2"
+            },
+            "description": "chi tiết lỗi của từng bản ghi",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ApiResponseV2": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "integer",
+            "format": "int32"
+          },
+          "results": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidateResultV2"
+            },
+            "description": "mỗi 1 object đem đi lưu sẽ tương ứng với 1 object này",
+            "nullable": true
+          },
+          "data": {
+            "description": "Dữ liệu trả về cho client",
+            "nullable": true
+          },
+          "error_message": {
+            "type": "string",
+            "description": "thông tin lỗi",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "response trả về cho người dùng"
+      },
+      "Stock": {
+        "type": "object",
+        "properties": {
+          "act_database_id": {
+            "type": "string",
+            "description": "ID của dữ liệu kế toán đang làm việc",
+            "nullable": true
+          },
+          "async_id": {
+            "type": "string",
+            "description": "ID kho kiểu guid",
+            "nullable": true
+          },
+          "created_by": {
+            "type": "string",
+            "description": "Người tạo",
+            "nullable": true
+          },
+          "created_date": {
+            "type": "string",
+            "description": "Ngày tạo",
+            "format": "date-time"
+          },
+          "description": {
+            "type": "string",
+            "description": "Mô tả kho",
+            "nullable": true
+          },
+          "inactive": {
+            "type": "boolean",
+            "description": "Ngừng theo dõi"
+          },
+          "modified_by": {
+            "type": "string",
+            "description": "Người sửa",
+            "nullable": true
+          },
+          "modified_date": {
+            "type": "string",
+            "description": "Ngày sửa",
+            "format": "date-time"
+          },
+          "stock_code": {
+            "type": "string",
+            "description": "Mã kho",
+            "nullable": true
+          },
+          "stock_name": {
+            "type": "string",
+            "description": "Tên kho",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ValidateResult": {
+        "type": "object",
+        "properties": {
+          "ID": {
+            "nullable": true
+          },
+          "Code": {
+            "type": "string",
+            "nullable": true
+          },
+          "ErrorMessage": {
+            "type": "string",
+            "nullable": true
+          },
+          "AdditionInfo": {
+            "nullable": true
+          },
+          "ValidateType": {
+            "enum": [0, 1, 2, 3, 4, 5],
+            "type": "integer",
+            "format": "int32"
+          },
+          "LayoutCode": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "StockListApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "true: Request thực hiện thành công không có lỗi logic, ngược lại thì có lỗi"
+          },
+          "code": {
+            "type": "integer",
+            "description": "Thông tin mã lỗi",
+            "format": "int32"
+          },
+          "dev_msg": {
+            "type": "string",
+            "description": "Thông báo lỗi cho nhà phát triển",
+            "nullable": true
+          },
+          "user_msg": {
+            "type": "string",
+            "description": "Thông báo lỗi cho người dùng cuối",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Stock"
+            },
+            "description": "Dữ liệu trả về cho người dùng",
+            "nullable": true
+          },
+          "validate_result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidateResult"
+            },
+            "description": "Dữ liệu trả về cho người dùng",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Đối tượng response về client"
+      },
+      "StockApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "true: Request thực hiện thành công không có lỗi logic, ngược lại thì có lỗi"
+          },
+          "code": {
+            "type": "integer",
+            "description": "Thông tin mã lỗi",
+            "format": "int32"
+          },
+          "dev_msg": {
+            "type": "string",
+            "description": "Thông báo lỗi cho nhà phát triển",
+            "nullable": true
+          },
+          "user_msg": {
+            "type": "string",
+            "description": "Thông báo lỗi cho người dùng cuối",
+            "nullable": true
+          },
+          "data": {
+            "$ref": "#/components/schemas/Stock"
+          },
+          "validate_result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidateResult"
+            },
+            "description": "Dữ liệu trả về cho người dùng",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Đối tượng response về client"
+      },
+      "ProductLedger": {
+        "type": "object",
+        "properties": {
+          "async_id": {
+            "type": "string",
+            "description": "id kiểu guild của hàng hóa",
+            "format": "uuid"
+          },
+          "product_code": {
+            "type": "string",
+            "description": "Mã Hàng hóa",
+            "nullable": true
+          },
+          "product_category_name": {
+            "type": "string",
+            "description": "Loại hàng hóa",
+            "nullable": true
+          },
+          "usage_unit_name": {
+            "type": "string",
+            "description": "đơn vị tính",
+            "nullable": true
+          },
+          "main_stock_quantity": {
+            "type": "number",
+            "description": "Số tồn theo đơn vị tính chính",
+            "format": "double"
+          },
+          "shipping_amount_summary": {
+            "type": "number",
+            "description": "Số lượng đã giao",
+            "format": "double"
+          },
+          "amount_summary": {
+            "type": "number",
+            "description": "Số lượng hàng hóa đơn hàng",
+            "format": "double"
+          },
+          "order_quantity": {
+            "type": "number",
+            "description": "Số lượng có thể đặt",
+            "format": "double"
+          },
+          "delivery_quantity": {
+            "type": "number",
+            "description": "Số lượng đã đặt chưa giao",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductLedgerListPagedResponse": {
+        "type": "object",
+        "properties": {
+          "page_size": {
+            "type": "integer",
+            "description": "Số phần tử trên 1 trang",
+            "format": "int32"
+          },
+          "total_pages": {
+            "type": "integer",
+            "description": "Tổng số trang",
+            "format": "int32"
+          },
+          "total_records": {
+            "type": "integer",
+            "description": "Tổng số bản ghi",
+            "format": "int64"
+          },
+          "next_page": {
+            "type": "integer",
+            "description": "Trang kế tiếp",
+            "format": "int32",
+            "nullable": true
+          },
+          "previous_page": {
+            "type": "integer",
+            "description": "Trang trước",
+            "format": "int32",
+            "nullable": true
+          },
+          "success": {
+            "type": "boolean",
+            "description": "true: Request thực hiện thành công không có lỗi logic, ngược lại thì có lỗi"
+          },
+          "code": {
+            "type": "integer",
+            "description": "Thông tin mã lỗi",
+            "format": "int32"
+          },
+          "dev_msg": {
+            "type": "string",
+            "description": "Thông báo lỗi cho nhà phát triển",
+            "nullable": true
+          },
+          "user_msg": {
+            "type": "string",
+            "description": "Thông báo lỗi cho người dùng cuối",
+            "nullable": true
+          },
+          "data": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ProductLedger"
+            },
+            "description": "Dữ liệu trả về cho người dùng",
+            "nullable": true
+          },
+          "validate_result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidateResult"
+            },
+            "description": "Dữ liệu trả về cho người dùng",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false
+      },
+      "ProductLedgerUpdate": {
+        "type": "object",
+        "properties": {
+          "product_code": {
+            "type": "string",
+            "description": "mã hàng",
+            "nullable": true
+          },
+          "stock_code": {
+            "type": "string",
+            "description": "mã kho",
+            "nullable": true
+          },
+          "quantity": {
+            "type": "number",
+            "description": "Số tồn theo đơn vị tính chính",
+            "format": "double"
+          }
+        },
+        "additionalProperties": false
+      },
+      "ObjectApiResponse": {
+        "type": "object",
+        "properties": {
+          "success": {
+            "type": "boolean",
+            "description": "true: Request thực hiện thành công không có lỗi logic, ngược lại thì có lỗi"
+          },
+          "code": {
+            "type": "integer",
+            "description": "Thông tin mã lỗi",
+            "format": "int32"
+          },
+          "dev_msg": {
+            "type": "string",
+            "description": "Thông báo lỗi cho nhà phát triển",
+            "nullable": true
+          },
+          "user_msg": {
+            "type": "string",
+            "description": "Thông báo lỗi cho người dùng cuối",
+            "nullable": true
+          },
+          "data": {
+            "description": "Dữ liệu trả về cho người dùng",
+            "nullable": true
+          },
+          "validate_result": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ValidateResult"
+            },
+            "description": "Dữ liệu trả về cho người dùng",
+            "nullable": true
+          }
+        },
+        "additionalProperties": false,
+        "description": "Đối tượng response về client"
+      }
+    },
+    "securitySchemes": {
+      "Bearer": {
+        "type": "http",
+        "description": "JWT Authorization header using the Bearer scheme",
+        "scheme": "Bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Account",
+      "description": "Controller xử lý việc sinh token"
+    }
+  ]
+}
