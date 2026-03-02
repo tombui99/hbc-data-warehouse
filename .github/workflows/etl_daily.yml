@@ -41,7 +41,7 @@ jobs:
 
           # Keep only the database and necessary files if needed, or just commit the DB
           # For Power BI, it's best to have the DB at the root of this branch
-          git add hbc_data_warehouse.duckdb
+          git add -f hbc_data_warehouse.duckdb
           git commit -m "Automated Data Update: $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
           git push origin data-storage --force
 
