@@ -147,23 +147,26 @@ def run_etl():
         else:
             print(f"  No new records for {table_name}. Staging batch is empty.")
 
-    # Run transformations
-    print("Running SQL transformations from Parquet...")
-    if os.path.exists("transforms.sql"):
-        # Use absolute path for {{PROJECT_ROOT}} so views work in DBeaver
-        project_root = str(Path(__file__).parent.absolute())
-        with open("transforms.sql", "r") as f:
-            sql_script = f.read().replace("{{PROJECT_ROOT}}", project_root)
-            
-            statements = sql_script.split(";")
-            for stmt in statements:
-                if stmt.strip():
-                    conn.execute(stmt)
-        print("Transformations completed successfully.")
-    else:
-        print("Warning: transforms.sql not found.")
-
-    conn.close()
+    try:
+        # Run transformations
+        print("Running SQL transformations from Parquet...")
+        if os.path.exists("transforms.sql"):
+            # Use absolute path for {{PROJECT_ROOT}} so views work in DBeaver
+            project_root = str(Path(__file__).parent.absolute())
+            with open("transforms.sql", "r") as f:
+                sql_script = f.read().replace("{{PROJECT_ROOT}}", project_root)
+                
+                statements = sql_script.split(";")
+                for stmt in statements:
+                    if stmt.strip():
+                        conn.execute(stmt)
+            print("Transformations completed successfully.")
+        else:
+            print("Warning: transforms.sql not found.")
+    finally:
+        conn.close()
+        print("DuckDB connection closed.")
+    
     print("ETL Job Finished.")
 
 if __name__ == "__main__":

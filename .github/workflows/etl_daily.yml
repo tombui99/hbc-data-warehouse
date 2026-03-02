@@ -1,0 +1,63 @@
+name: Daily ETL and Power BI Refresh
+
+on:
+  schedule:
+    - cron: "0 5 * * *" # 12:00 Hanoi time (05:00 UTC)
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  etl:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install Dependencies
+        run: |
+          pip install -r requirements.txt || pip install requests duckdb pandas pyarrow python-dotenv
+
+      - name: Run ETL
+        env:
+          MISA_BASE_URL: ${{ secrets.MISA_BASE_URL }}
+          MISA_CLIENT_ID: ${{ secrets.MISA_CLIENT_ID }}
+          MISA_CLIENT_SECRET: ${{ secrets.MISA_CLIENT_SECRET }}
+          DUCKDB_PATH: hbc_data_warehouse.duckdb
+        run: python etl_misa.py
+
+      - name: Prepare Data for Storage
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create and switch to data-storage branch if it doesn't exist
+          git checkout -B data-storage
+
+          # Keep only the database and necessary files if needed, or just commit the DB
+          # For Power BI, it's best to have the DB at the root of this branch
+          git add hbc_data_warehouse.duckdb
+          git commit -m "Automated Data Update: $(date +'%Y-%m-%d %H:%M:%S')" || echo "No changes to commit"
+          git push origin data-storage --force
+
+      - name: Trigger Power BI Refresh
+        if: success()
+        run: |
+          # 1. Get Access Token from Azure AD
+          TOKEN=$(curl -X POST https://login.microsoftonline.com/${{ secrets.PBI_TENANT_ID }}/oauth2/v2.0/token \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            -d "client_id=${{ secrets.PBI_CLIENT_ID }}" \
+            -d "grant_type=client_credentials" \
+            -d "scope=https://analysis.windows.net/powerbi/api/.default" \
+            -d "client_secret=${{ secrets.PBI_CLIENT_SECRET }}" | jq -r '.access_token')
+
+          # 2. Trigger Refresh
+          curl -X POST https://api.powerbi.com/v1.0/myorg/groups/${{ secrets.PBI_WORKSPACE_ID }}/datasets/${{ secrets.PBI_DATASET_ID }}/refreshes \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Content-Length: 0"

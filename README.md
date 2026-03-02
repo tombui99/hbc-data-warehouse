@@ -40,15 +40,44 @@ source venv/bin/activate
 python etl_misa.py
 ```
 
-### 4. Scheduling (2x per day)
+### 4. Automation with GitHub Actions
 
-You can use `crontab` to schedule the script.
+The project is configured to run automatically using GitHub Actions. The workflow:
+
+1.  Runs daily at **12:00 Hanoi time (05:00 UTC)**.
+2.  Extracts new data from Misa CRM and updates the DuckDB file.
+3.  Pushes the updated database to a dedicated `data-storage` branch.
+4.  Triggers a Power BI Dataset Refresh via REST API.
+
+#### GitHub Secrets Configuration
+
+To enable the automation, add the following secrets to your GitHub repository (**Settings > Secrets and variables > Actions**):
+
+| Secret Name          | Description                                        |
+| :------------------- | :------------------------------------------------- |
+| `MISA_BASE_URL`      | Misa CRM API Base URL                              |
+| `MISA_CLIENT_ID`     | Misa CRM Client ID                                 |
+| `MISA_CLIENT_SECRET` | Misa CRM Client SECRET                             |
+| `PBI_TENANT_ID`      | Azure/Power BI Tenant ID                           |
+| `PBI_CLIENT_ID`      | Azure App Client ID (with `Dataset.ReadWrite.All`) |
+| `PBI_CLIENT_SECRET`  | Azure App Client Secret                            |
+| `PBI_WORKSPACE_ID`   | Power BI Workspace ID                              |
+| `PBI_DATASET_ID`     | Power BI Dataset ID                                |
+
+## Power BI Cloud Integration
+
+To connect Power BI Service to the automated DuckDB file:
+
+1.  **Direct Download Link**: Use the "Raw" file link from the `data-storage` branch for the `hbc_data_warehouse.duckdb` file.
+    - URL Format: `https://raw.githubusercontent.com/tombui99/hbc-data-warehouse/data-storage/hbc_data_warehouse.duckdb`
+2.  **Power BI Web Connector**: In Power BI Desktop, use the **Web** connector with this URL.
+3.  **Scheduled Refresh**: Once published to the Power BI Service, the GitHub Action will automatically trigger the refresh daily.
+
+### Alternative: Local Scheduling (Crontab)
+
+If you prefer to run it locally:
 
 ```bash
-# Open crontab
-crontab -e
-
-# Add these lines (runs at 8 AM and 8 PM)
 0 8,20 * * * cd "/Users/tombui/Desktop/HBC Data Warehouse" && ./venv/bin/python etl_misa.py >> etl.log 2>&1
 ```
 
