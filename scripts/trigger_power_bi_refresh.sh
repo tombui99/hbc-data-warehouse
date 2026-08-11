@@ -17,6 +17,14 @@ for variable_name in "${required_variables[@]}"; do
   fi
 done
 
+uuid_pattern='^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+for id_variable in PBI_WORKSPACE_ID PBI_DATASET_ID; do
+  if [[ ! "${!id_variable}" =~ ${uuid_pattern} ]]; then
+    echo "${id_variable} must be a plain UUID with no quotes, URL, or whitespace." >&2
+    exit 1
+  fi
+done
+
 response_file=$(mktemp)
 trap 'rm -f "${response_file}"' EXIT
 
@@ -41,9 +49,58 @@ fi
 
 access_token=$(jq -er '.access_token' "${response_file}")
 
-curl --fail-with-body --silent --show-error \
-  -X POST "https://api.powerbi.com/v1.0/myorg/groups/${PBI_WORKSPACE_ID}/datasets/${PBI_DATASET_ID}/refreshes" \
+power_bi_base_url="https://api.powerbi.com/v1.0/myorg"
+
+workspace_status=$(curl --silent --show-error \
+  --output "${response_file}" \
+  --write-out "%{http_code}" \
   -H "Authorization: Bearer ${access_token}" \
-  -H "Content-Length: 0"
+  "${power_bi_base_url}/groups/${PBI_WORKSPACE_ID}")
+
+if [[ "${workspace_status}" != "200" ]]; then
+  echo "Power BI workspace preflight failed with HTTP ${workspace_status}." >&2
+  if [[ "${workspace_status}" == "404" ]]; then
+    echo "The workspace ID is wrong, belongs to another tenant, or the Entra application has not been added to the workspace." >&2
+    echo "Ask a workspace admin to add the application as Contributor or Member, then verify PBI_WORKSPACE_ID." >&2
+  else
+    jq -c '.' "${response_file}" >&2 || true
+  fi
+  exit 1
+fi
+
+echo "Power BI workspace is visible to the service principal."
+
+dataset_status=$(curl --silent --show-error \
+  --output "${response_file}" \
+  --write-out "%{http_code}" \
+  -H "Authorization: Bearer ${access_token}" \
+  "${power_bi_base_url}/groups/${PBI_WORKSPACE_ID}/datasets/${PBI_DATASET_ID}")
+
+if [[ "${dataset_status}" != "200" ]]; then
+  echo "Power BI semantic-model preflight failed with HTTP ${dataset_status}." >&2
+  if [[ "${dataset_status}" == "404" ]]; then
+    echo "The workspace is accessible, but PBI_DATASET_ID does not identify a semantic model in that workspace." >&2
+    echo "Verify that the semantic-model ID and workspace ID were copied from the same workspace." >&2
+  else
+    jq -c '.' "${response_file}" >&2 || true
+  fi
+  exit 1
+fi
+
+semantic_model_name=$(jq -r '.name // "(unnamed semantic model)"' "${response_file}")
+echo "Power BI semantic model is visible: ${semantic_model_name}"
+
+refresh_status=$(curl --silent --show-error \
+  --output "${response_file}" \
+  --write-out "%{http_code}" \
+  -X POST "${power_bi_base_url}/groups/${PBI_WORKSPACE_ID}/datasets/${PBI_DATASET_ID}/refreshes" \
+  -H "Authorization: Bearer ${access_token}" \
+  -H "Content-Length: 0")
+
+if [[ "${refresh_status}" != "200" && "${refresh_status}" != "202" ]]; then
+  echo "Power BI refresh request failed with HTTP ${refresh_status}." >&2
+  jq -c '.' "${response_file}" >&2 || true
+  exit 1
+fi
 
 echo "Power BI dataset refresh accepted."
