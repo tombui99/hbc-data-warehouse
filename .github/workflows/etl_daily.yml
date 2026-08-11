@@ -59,16 +59,10 @@ jobs:
 
       - name: Trigger Power BI Refresh
         if: success()
-        run: |
-          # 1. Get Access Token from Azure AD
-          TOKEN=$(curl -X POST https://login.microsoftonline.com/${{ secrets.PBI_TENANT_ID }}/oauth2/v2.0/token \
-            -H "Content-Type: application/x-www-form-urlencoded" \
-            -d "client_id=${{ secrets.PBI_CLIENT_ID }}" \
-            -d "grant_type=client_credentials" \
-            -d "scope=https://analysis.windows.net/powerbi/api/.default" \
-            -d "client_secret=${{ secrets.PBI_CLIENT_SECRET }}" | jq -r '.access_token')
-
-          # 2. Trigger Refresh
-          curl -X POST https://api.powerbi.com/v1.0/myorg/groups/${{ secrets.PBI_WORKSPACE_ID }}/datasets/${{ secrets.PBI_DATASET_ID }}/refreshes \
-            -H "Authorization: Bearer $TOKEN" \
-            -H "Content-Length: 0"
+        env:
+          PBI_TENANT_ID: ${{ secrets.PBI_TENANT_ID }}
+          PBI_CLIENT_ID: ${{ secrets.PBI_CLIENT_ID }}
+          PBI_CLIENT_SECRET: ${{ secrets.PBI_CLIENT_SECRET }}
+          PBI_WORKSPACE_ID: ${{ secrets.PBI_WORKSPACE_ID }}
+          PBI_DATASET_ID: ${{ secrets.PBI_DATASET_ID }}
+        run: bash scripts/trigger_power_bi_refresh.sh
