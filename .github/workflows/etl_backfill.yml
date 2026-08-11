@@ -1,0 +1,82 @@
+name: Manual Misa Backfill and Power BI Refresh
+
+on:
+  workflow_dispatch:
+    inputs:
+      start_date:
+        description: Inclusive start date (YYYY-MM-DD)
+        required: true
+        default: "2026-06-01"
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: hbc-data-storage-writer
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Restore current warehouse
+        run: |
+          git fetch origin data-storage
+          git show origin/data-storage:hbc_data_warehouse.duckdb > hbc_data_warehouse.duckdb
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run historical backfill
+        env:
+          MISA_BASE_URL: ${{ secrets.MISA_BASE_URL }}
+          MISA_CLIENT_ID: ${{ secrets.MISA_CLIENT_ID }}
+          MISA_CLIENT_SECRET: ${{ secrets.MISA_CLIENT_SECRET }}
+          DUCKDB_PATH: hbc_data_warehouse.duckdb
+          BACKFILL_START_DATE: ${{ inputs.start_date }}
+        run: python etl_misa_backfill.py --start-date "${BACKFILL_START_DATE}"
+
+      - name: Publish updated warehouse
+        env:
+          BACKFILL_START_DATE: ${{ inputs.start_date }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git checkout -B data-storage
+          git add -f hbc_data_warehouse.duckdb
+          git commit -m "Misa backfill from ${BACKFILL_START_DATE} through $(date -u +'%Y-%m-%d')" || echo "No warehouse changes to commit"
+          git push origin data-storage --force
+
+      - name: Trigger Power BI refresh
+        env:
+          PBI_TENANT_ID: ${{ secrets.PBI_TENANT_ID }}
+          PBI_CLIENT_ID: ${{ secrets.PBI_CLIENT_ID }}
+          PBI_CLIENT_SECRET: ${{ secrets.PBI_CLIENT_SECRET }}
+          PBI_WORKSPACE_ID: ${{ secrets.PBI_WORKSPACE_ID }}
+          PBI_DATASET_ID: ${{ secrets.PBI_DATASET_ID }}
+        run: |
+          TOKEN=$(curl --fail-with-body --silent --show-error \
+            -X POST "https://login.microsoftonline.com/${PBI_TENANT_ID}/oauth2/v2.0/token" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "client_id=${PBI_CLIENT_ID}" \
+            --data-urlencode "grant_type=client_credentials" \
+            --data-urlencode "scope=https://analysis.windows.net/powerbi/api/.default" \
+            --data-urlencode "client_secret=${PBI_CLIENT_SECRET}" | jq -er '.access_token')
+
+          curl --fail-with-body --silent --show-error \
+            -X POST "https://api.powerbi.com/v1.0/myorg/groups/${PBI_WORKSPACE_ID}/datasets/${PBI_DATASET_ID}/refreshes" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Content-Length: 0"

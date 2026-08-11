@@ -8,6 +8,10 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: hbc-data-storage-writer
+  cancel-in-progress: false
+
 jobs:
   etl:
     runs-on: ubuntu-latest
@@ -16,6 +20,11 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
+
+      - name: Restore current warehouse
+        run: |
+          git fetch origin data-storage
+          git show origin/data-storage:hbc_data_warehouse.duckdb > hbc_data_warehouse.duckdb
 
       - name: Set up Python
         uses: actions/setup-python@v5

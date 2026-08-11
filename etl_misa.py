@@ -3,7 +3,7 @@ import requests
 import duckdb
 import pandas as pd
 from dotenv import load_dotenv
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import json
 from pathlib import Path
@@ -20,6 +20,27 @@ STAGING_DIR = Path("data/staging")
 # Ensure staging directory exists
 STAGING_DIR.mkdir(parents=True, exist_ok=True)
 
+ENDPOINTS = {
+    "contacts": "/api/v2/Contacts",
+    "customers": "/api/v2/Customers",
+    "products": "/api/v2/Products",
+    "sale_orders": "/api/v2/SaleOrders",
+    "stocks": "/api/v2/Stocks",
+}
+
+
+def _normalise_datetime(value):
+    """Return a timezone-neutral UTC datetime for reliable API comparisons."""
+    if isinstance(value, datetime):
+        parsed = value
+    else:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone(timezone.utc).replace(tzinfo=None)
+    return parsed
+
+
 def get_token():
     url = f"{BASE_URL}/api/v2/Account"
     payload = {
@@ -35,7 +56,8 @@ def get_token():
     else:
         raise Exception(f"Failed to get token: {data.get('error_message')}")
 
-def fetch_data(endpoint, token, last_modified=None):
+
+def fetch_data(endpoint, token, last_modified=None, include_boundary=False):
     all_data = []
     page = 0
     page_size = 100
@@ -81,7 +103,11 @@ def fetch_data(endpoint, token, last_modified=None):
         for record in data:
             modified_date = record.get("modified_date")
             if last_modified and modified_date:
-                if modified_date <= last_modified:
+                modified_at = _normalise_datetime(modified_date)
+                boundary = _normalise_datetime(last_modified)
+                is_before_boundary = modified_at < boundary
+                is_at_boundary = modified_at == boundary
+                if is_before_boundary or (is_at_boundary and not include_boundary):
                     stop_fetching = True
                     break
             new_records.append(record)
@@ -96,25 +122,19 @@ def fetch_data(endpoint, token, last_modified=None):
         
     return all_data
 
-def run_etl():
+
+def run_etl(from_modified=None, include_boundary=False):
     conn = duckdb.connect(DB_PATH)
     token = get_token()
-    
-    endpoints = {
-        "contacts": "/api/v2/Contacts",
-        "customers": "/api/v2/Customers",
-        "products": "/api/v2/Products",
-        "sale_orders": "/api/v2/SaleOrders",
-        "stocks": "/api/v2/Stocks"
-    }
-    
-    for table_name, endpoint in endpoints.items():
+
+    conn.execute("CREATE TABLE IF NOT EXISTS etl_metadata (table_name VARCHAR PRIMARY KEY, last_modified TIMESTAMP)")
+
+    for table_name, endpoint in ENDPOINTS.items():
         print(f"Processing {table_name}...")
         
         # Get last modified date from metadata
-        conn.execute("CREATE TABLE IF NOT EXISTS etl_metadata (table_name VARCHAR PRIMARY KEY, last_modified TIMESTAMP)")
         res = conn.execute("SELECT last_modified FROM etl_metadata WHERE table_name = ?", (table_name,)).fetchone()
-        last_modified = res[0].isoformat() if res and res[0] else None
+        last_modified = from_modified or (res[0].isoformat() if res and res[0] else None)
         
         # The 'stocks' endpoint is a small static list that doesn't support 
         # pagination or incremental filtering, so we fetch it in one Go.
@@ -124,7 +144,7 @@ def run_etl():
              res.raise_for_status()
              records = res.json().get("data", [])
         else:
-            records = fetch_data(endpoint, token, last_modified)
+            records = fetch_data(endpoint, token, last_modified, include_boundary)
         
         # Always save a "fresh" Parquet file for the current run's incremental slice.
         # This prevents transforms.sql from re-processing the previous run's batch if no new data is found.
@@ -142,7 +162,8 @@ def run_etl():
                 conn.execute("""
                     INSERT INTO etl_metadata (table_name, last_modified) 
                     VALUES (?, ?) 
-                    ON CONFLICT(table_name) DO UPDATE SET last_modified = excluded.last_modified
+                    ON CONFLICT(table_name) DO UPDATE SET
+                        last_modified = GREATEST(etl_metadata.last_modified, excluded.last_modified)
                 """, (table_name, max_mod))
         else:
             print(f"  No new records for {table_name}. Staging batch is empty.")
@@ -168,6 +189,7 @@ def run_etl():
         print("DuckDB connection closed.")
     
     print("ETL Job Finished.")
+
 
 if __name__ == "__main__":
     run_etl()

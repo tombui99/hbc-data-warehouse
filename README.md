@@ -64,6 +64,24 @@ To enable the automation, add the following secrets to your GitHub repository (*
 | `PBI_WORKSPACE_ID`   | Power BI Workspace ID                              |
 | `PBI_DATASET_ID`     | Power BI Dataset ID                                |
 
+### 5. Repairing a Historical Gap
+
+The separate **Manual Misa Backfill and Power BI Refresh** workflow repairs a
+historical gap without changing the daily ETL schedule. In GitHub, open
+**Actions**, select that workflow, choose **Run workflow**, and leave the start
+date as `2026-06-01` (or enter another date in `YYYY-MM-DD` format).
+
+The backfill restores the latest DuckDB file from the `data-storage` branch,
+fetches every CRM record whose `modified_date` is on or after the selected date,
+upserts those records, publishes the repaired database, and triggers a Power BI
+dataset refresh. It is safe to rerun because modeled tables use upserts.
+
+For a local backfill against an existing warehouse:
+
+```bash
+python etl_misa_backfill.py --start-date 2026-06-01
+```
+
 ## Power BI Cloud Integration
 
 To connect Power BI Service to the automated DuckDB file:
