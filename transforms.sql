@@ -179,14 +179,23 @@ CREATE TABLE IF NOT EXISTS dim_employees (
     modified_date TIMESTAMP
 );
 
-INSERT OR REPLACE INTO dim_employees
-SELECT DISTINCT
-    CAST(json_extract(data, '$.employee_code') AS VARCHAR) AS employee_code,
-    CAST(json_extract(data, '$.recorded_sale_users_name') AS VARCHAR) AS employee_name,
-    MAX(CAST(json_extract(data, '$.modified_date') AS TIMESTAMP)) AS modified_date
-FROM read_parquet('{{PROJECT_ROOT}}/data/staging/stg_sale_orders.parquet')
-WHERE CAST(json_extract(data, '$.employee_code') AS VARCHAR) IS NOT NULL
-GROUP BY 1, 2;
+INSERT INTO dim_employees
+SELECT
+    employee_code,
+    ARG_MAX(employee_name, modified_date) AS employee_name,
+    MAX(modified_date) AS modified_date
+FROM (
+    SELECT
+        CAST(json_extract(data, '$.employee_code') AS VARCHAR) AS employee_code,
+        CAST(json_extract(data, '$.recorded_sale_users_name') AS VARCHAR) AS employee_name,
+        CAST(json_extract(data, '$.modified_date') AS TIMESTAMP) AS modified_date
+    FROM read_parquet('{{PROJECT_ROOT}}/data/staging/stg_sale_orders.parquet')
+)
+WHERE employee_code IS NOT NULL
+GROUP BY employee_code
+ON CONFLICT (employee_code) DO UPDATE SET
+    employee_name = excluded.employee_name,
+    modified_date = excluded.modified_date;
 
 -- 3. Fact Tables (Upsert)
 
@@ -209,7 +218,30 @@ CREATE TABLE IF NOT EXISTS fact_sale_orders (
 ALTER TABLE fact_sale_orders ADD COLUMN IF NOT EXISTS employee_code VARCHAR;
 ALTER TABLE fact_sale_orders ADD COLUMN IF NOT EXISTS status VARCHAR;
 
-INSERT OR REPLACE INTO fact_sale_orders (
+-- Create the child table before refreshing orders. Existing child rows for this
+-- batch must be removed first because DuckDB cannot update a referenced parent
+-- row when one of that parent's own foreign-key columns is part of the update.
+CREATE TABLE IF NOT EXISTS fact_sale_order_items (
+    order_item_id VARCHAR PRIMARY KEY,
+    sale_order_id VARCHAR REFERENCES fact_sale_orders(sale_order_id),
+    product_code VARCHAR REFERENCES dim_products(product_code),
+    quantity DOUBLE,
+    unit_price DOUBLE,
+    discount_amount DOUBLE,
+    tax_amount DOUBLE,
+    total_amount DOUBLE,
+    is_promotion BOOLEAN,
+    modified_date TIMESTAMP
+);
+
+DELETE FROM fact_sale_order_items
+WHERE sale_order_id IN (
+    SELECT DISTINCT CAST(json_extract(data, '$.id') AS VARCHAR)
+    FROM read_parquet('{{PROJECT_ROOT}}/data/staging/stg_sale_orders.parquet')
+    WHERE CAST(json_extract(data, '$.id') AS VARCHAR) IS NOT NULL
+);
+
+INSERT INTO fact_sale_orders (
     sale_order_id, sale_order_no, order_date, customer_code, 
     contact_code, employee_code, status, total_amount, 
     total_discount, total_vat, modified_date
@@ -227,22 +259,20 @@ SELECT
     CAST(json_extract(data, '$.tax_summary') AS DOUBLE) AS total_vat,
     CAST(json_extract(data, '$.modified_date') AS TIMESTAMP) AS modified_date
 FROM read_parquet('{{PROJECT_ROOT}}/data/staging/stg_sale_orders.parquet')
-WHERE CAST(json_extract(data, '$.id') AS VARCHAR) IS NOT NULL;
+WHERE CAST(json_extract(data, '$.id') AS VARCHAR) IS NOT NULL
+ON CONFLICT (sale_order_id) DO UPDATE SET
+    sale_order_no = excluded.sale_order_no,
+    order_date = excluded.order_date,
+    customer_code = excluded.customer_code,
+    contact_code = excluded.contact_code,
+    employee_code = excluded.employee_code,
+    status = excluded.status,
+    total_amount = excluded.total_amount,
+    total_discount = excluded.total_discount,
+    total_vat = excluded.total_vat,
+    modified_date = excluded.modified_date;
 
 -- fact_sale_order_items (Granular line items)
-CREATE TABLE IF NOT EXISTS fact_sale_order_items (
-    order_item_id VARCHAR PRIMARY KEY,
-    sale_order_id VARCHAR REFERENCES fact_sale_orders(sale_order_id),
-    product_code VARCHAR REFERENCES dim_products(product_code),
-    quantity DOUBLE,
-    unit_price DOUBLE,
-    discount_amount DOUBLE,
-    tax_amount DOUBLE,
-    total_amount DOUBLE,
-    is_promotion BOOLEAN,
-    modified_date TIMESTAMP
-);
-
 INSERT OR REPLACE INTO fact_sale_order_items
 SELECT
     CAST(json_extract(item, '$.id') AS VARCHAR) AS order_item_id,
